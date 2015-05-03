@@ -19,4 +19,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0);
 }
 
+
+
+include 'Slim/Slim.php';
+
+require 'ProtectedDocs/connection.php';
+
+$app = new Slim();
+
+$app->post('/client', 'clientStuff');
+
+$app->run();
+
+function utf8ize($mixed) {
+    if (is_array($mixed)) {
+        foreach ($mixed as $key => $value) {
+            $mixed[$key] = utf8ize($value);
+        }
+    } else if (is_string ($mixed)) {
+        return utf8_encode($mixed);
+    }
+    return $mixed;
+}
+
 ?>
