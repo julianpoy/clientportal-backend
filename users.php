@@ -124,16 +124,16 @@ function userLogin() {
     echo '{"result":{"session_token":"'. $session_token .'"}}';
 }
 
-function userJoin() {
+function setPassword() {
     $request = Slim::getInstance()->request();
     $user = json_decode($request->getBody());
 
     //Check if username exists
     $sql = "SELECT
-
-        username
-
-        FROM users WHERE username=:username LIMIT 1";
+        id
+        FROM users
+        WHERE username=:username AND password=NULL AND salt=NULL
+        LIMIT 1";
 
     try {
         $db = getConnection();
@@ -141,7 +141,7 @@ function userJoin() {
         $stmt->bindParam("username", $user->username);
         //$stmt->bindParam("password", $user->password);
         $stmt->execute();
-        $usercheck = $stmt->fetchObject();
+        $userid = $stmt->fetchObject();
         $db = null;
     } catch(PDOException $e) {
         echo '{"error":{"text":'. $e->getMessage() .'}}';
@@ -149,8 +149,8 @@ function userJoin() {
     }
 
     //If exists echo error and cancel
-    if(!isset($usercheck->username)){
-        echo '{"error":{"text":"Username Does Not Exist","errorid":"22"}}';
+    if(!isset($userid->id)){
+        echo '{"error":{"text":"Username Does Not Exist OR Already Has A Password Set","errorid":"22"}}';
         exit;
     }
 
@@ -162,34 +162,20 @@ function userJoin() {
     $passwordcrypt = crypt($user->password, $salt);
 
     //Create user
-    $sql = "INSERT INTO users
+    $sql = "UPDATE users
 
-    (username, password, salt, name,
-        phone, address1, address2,
-        city, state, zip, profile)
+    SET password=:password, salt=:salt
 
-    VALUES
-
-    (:username, :password, :salt, :name,
-        :phone, :address1, :address2,
-        :city, :state, :zip, :profile)";
+    WHERE username=:username AND id=:id";
 
     try {
         $db = getConnection();
         $stmt = $db->prepare($sql);
         $stmt->bindParam("username", $user->username);
+        $stmt->bindParam("id", $userid->id);
         $stmt->bindParam("password", $passwordcrypt);
         $stmt->bindParam("salt", $salt);
-        $stmt->bindParam("name", $user->name);
-        $stmt->bindParam("phone", $user->phone);
-        $stmt->bindParam("address1", $user->address1);
-        $stmt->bindParam("address2", $user->address2);
-        $stmt->bindParam("city", $user->city);
-        $stmt->bindParam("state", $user->state);
-        $stmt->bindParam("zip", $user->zip);
-        $stmt->bindParam("profile", $user->profile);
         $stmt->execute();
-        $newusrid = $db->lastInsertId();
         $db = null;
     } catch(PDOException $e) {
         echo '{"error":{"text":'. $e->getMessage() .'}}';
@@ -216,7 +202,7 @@ function userJoin() {
     try {
         $db = getConnection();
         $stmt = $db->prepare($sql);
-        $stmt->bindParam("user_id", $newusrid);
+        $stmt->bindParam("user_id", $userid->id);
         $stmt->bindParam("token", $randomstring);
         $stmt->execute();
         $session_token = $randomstring;
