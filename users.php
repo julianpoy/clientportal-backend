@@ -128,7 +128,7 @@ function setPassword() {
     $request = Slim::getInstance()->request();
     $user = json_decode($request->getBody());
 
-    //Check if username exists
+    //Check to see if username exists and is not set up
     $sql = "SELECT
         id
         FROM users
@@ -148,7 +148,7 @@ function setPassword() {
         exit;
     }
 
-    //If exists echo error and cancel
+    //Fail if username doesnt exist, or if it is already set up
     if(!isset($userid->id)){
         echo '{"error":{"text":"Username Does Not Exist OR Already Has A Password Set","errorid":"22"}}';
         exit;
@@ -161,7 +161,7 @@ function setPassword() {
     //Crypt salt and password
     $passwordcrypt = crypt($user->password, $salt);
 
-    //Create user
+    //Update user with new password and salt
     $sql = "UPDATE users
 
     SET password=:password, salt=:salt
@@ -184,13 +184,13 @@ function setPassword() {
 
     //Generate a session token
     $length = 24;
-    $randomstring = bin2hex(openssl_random_pseudo_bytes($length, $strong));
-    if(!($strong = true)){
+    $session_token = bin2hex(openssl_random_pseudo_bytes($length, $strong));
+    if(!$strong){
         echo '{"error":{"text":"Did not generate secure random session token"}}';
         exit;
     }
 
-    //Insert session token
+    //Create session token
     $sql = "INSERT INTO sessions
 
         (user_id, token)
@@ -203,19 +203,17 @@ function setPassword() {
         $db = getConnection();
         $stmt = $db->prepare($sql);
         $stmt->bindParam("user_id", $userid->id);
-        $stmt->bindParam("token", $randomstring);
+        $stmt->bindParam("token", $session_token);
         $stmt->execute();
-        $session_token = $randomstring;
         $db = null;
     } catch(PDOException $e) {
         echo '{"error":{"text":'. $e->getMessage() .'}}';
         exit;
     }
 
-    echo '{"result":{ "session_token":"'. $randomstring .'"}}';
+    //Spit out results
+    echo '{"result":{ "session_token":"'. $session_token .'"}}';
 }
-
-
 
 function utf8ize($mixed) {
     if (is_array($mixed)) {
