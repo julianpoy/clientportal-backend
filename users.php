@@ -234,14 +234,13 @@ function addUser() {
     $sql = "SELECT
         id
         FROM users
-        WHERE username=:username AND password=NULL AND salt=NULL
+        WHERE username=:username
         LIMIT 1";
 
     try {
         $db = getConnection();
         $stmt = $db->prepare($sql);
         $stmt->bindParam("username", $user->username);
-        //$stmt->bindParam("password", $user->password);
         $stmt->execute();
         $userid = $stmt->fetchObject();
         $db = null;
@@ -250,9 +249,9 @@ function addUser() {
         exit;
     }
 
-    //Fail if username doesnt exist, or if it is already set up
-    if(!isset($userid->id)){
-        echo '{"error":{"text":"Username Does Not Exist OR Already Has A Password Set","errorid":"22"}}';
+    //Fail if username exists, so a client's account isnt overwritten
+    if(isset($userid->id)){
+        echo '{"error":{"text":"USERNAME ALREADY EXISTS! WARNING!","errorid":"22"}}';
         exit;
     }
 
