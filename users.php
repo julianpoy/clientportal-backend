@@ -226,4 +226,106 @@ function utf8ize($mixed) {
     return $mixed;
 }
 
+function userAdd() {
+    $request = Slim::getInstance()->request();
+    $user = json_decode($request->getBody());
+
+    //Check to see if username exists and is not set up
+    $sql = "SELECT
+        id
+        FROM users
+        WHERE username=:username AND password=NULL AND salt=NULL
+        LIMIT 1";
+
+    try {
+        $db = getConnection();
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam("username", $user->username);
+        //$stmt->bindParam("password", $user->password);
+        $stmt->execute();
+        $userid = $stmt->fetchObject();
+        $db = null;
+    } catch(PDOException $e) {
+        echo '{"error":{"text":'. $e->getMessage() .'}}';
+        exit;
+    }
+
+    //Fail if username doesnt exist, or if it is already set up
+    if(!isset($userid->id)){
+        echo '{"error":{"text":"Username Does Not Exist OR Already Has A Password Set","errorid":"22"}}';
+        exit;
+    }
+
+    //Generate a salt
+    $length = 24;
+    $salt = bin2hex(openssl_random_pseudo_bytes($length));
+
+    //Crypt salt and password
+    $passwordcrypt = crypt($user->password, $salt);
+
+    //Update user with new password and salt
+    $sql = "UPDATE users
+
+    SET password=:password, salt=:salt
+
+    WHERE username=:username AND id=:id";
+
+    try {
+        $db = getConnection();
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam("username", $user->username);
+        $stmt->bindParam("id", $userid->id);
+        $stmt->bindParam("password", $passwordcrypt);
+        $stmt->bindParam("salt", $salt);
+        $stmt->execute();
+        $db = null;
+    } catch(PDOException $e) {
+        echo '{"error":{"text":'. $e->getMessage() .'}}';
+        exit;
+    }
+
+    //Generate a session token
+    $length = 24;
+    $session_token = bin2hex(openssl_random_pseudo_bytes($length, $strong));
+    if(!$strong){
+        echo '{"error":{"text":"Did not generate secure random session token"}}';
+        exit;
+    }
+
+    //Create session token
+    $sql = "INSERT INTO sessions
+
+        (user_id, token)
+
+        VALUES
+
+        (:user_id, :token)";
+
+    try {
+        $db = getConnection();
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam("user_id", $userid->id);
+        $stmt->bindParam("token", $session_token);
+        $stmt->execute();
+        $db = null;
+    } catch(PDOException $e) {
+        echo '{"error":{"text":'. $e->getMessage() .'}}';
+        exit;
+    }
+
+    //Spit out results
+    echo '{"result":{ "session_token":"'. $session_token .'"}}';
+}
+
+function utf8ize($mixed) {
+    if (is_array($mixed)) {
+        foreach ($mixed as $key => $value) {
+            $mixed[$key] = utf8ize($value);
+        }
+    } else if (is_string ($mixed)) {
+        return utf8_encode($mixed);
+    }
+    return $mixed;
+}
+
 ?>
