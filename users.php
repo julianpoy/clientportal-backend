@@ -226,7 +226,7 @@ function utf8ize($mixed) {
     return $mixed;
 }
 
-function userAdd() {
+function addUser() {
     $request = Slim::getInstance()->request();
     $user = json_decode($request->getBody());
 
